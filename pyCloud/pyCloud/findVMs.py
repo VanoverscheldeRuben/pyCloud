@@ -6,15 +6,15 @@ import arginput
 def main():
     cm = CloudManager()
 
-    args = arginput.getServerConnectArgs()
+    args = arginput.getServerConnectAndSearchArgs()
     arginput.addPassword(args)
 
     cm.setArgs(args)
     cm.connectToServer()
     cm.loadVMList()
 
-    serv_name = arginput.getServerName()
-    cm.turnOnVM(serv_name)
+    vms = cm.findVMs()
+    cm.displayVMs(vms)
 
 if __name__ =='__main__':
     main();

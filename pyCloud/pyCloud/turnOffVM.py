@@ -9,7 +9,7 @@ def main():
     args = arginput.getServerConnectArgs()
     arginput.addPassword(args)
 
-    cm.setConnectArgs(args)
+    cm.setArgs(args)
     cm.connectToServer()
     cm.loadVMList()
 

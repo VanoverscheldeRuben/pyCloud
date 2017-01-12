@@ -13,8 +13,7 @@ def main():
     cm.connectToServer()
     cm.loadVMList()
 
-    serv_name = arginput.getServerName()
-    cm.turnOnVM(serv_name)
+    cm.displayVMs()
 
 if __name__ =='__main__':
     main();

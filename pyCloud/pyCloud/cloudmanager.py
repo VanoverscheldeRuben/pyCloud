@@ -1,5 +1,16 @@
 #!/usr/bin/env python
 
+import sys
+reload(sys)
+sys.setdefaultencoding("utf-8")
+
+from os import system, path
+from sys import exit
+from threading import Thread
+from time import sleep
+
+from pyVim import connect
+
 import pyVmomi
 from pyVmomi import vim, vmodl
 from pyVim.connect import SmartConnect, Disconnect
@@ -8,6 +19,8 @@ import arginput
 
 import atexit
 import ssl
+
+import json
 
 class CloudManager(object):
     def __init__(self):
@@ -18,7 +31,7 @@ class CloudManager(object):
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
         self.context.verify_mode = ssl.CERT_NONE
 
-    def setConnectArgs(self, args):
+    def setArgs(self, args):
         self.args = args
 
     def connectToServer(self):
@@ -28,9 +41,6 @@ class CloudManager(object):
             self.conn = SmartConnect(host=self.args.host, user=self.args.user, pwd=self.args.pwd, sslContext=self.context)
 
     def loadVMList(self):
-        '''datacenter = self.conn.content.rootFolder.childEntity[0]
-        self.vms = datacenter.vmFolder.childEntity'''
-
         content = self.conn.RetrieveContent()
         for child in content.rootFolder.childEntity:
             if hasattr(child, 'vmFolder'):
@@ -38,9 +48,46 @@ class CloudManager(object):
                 vmFolder = datacenter.vmFolder
                 self.vmList = vmFolder.childEntity
 
-    def displayVMs(self):
+    def findVMs(self):
+        if self.vmList == None: # Load all VMs in case that hasn't happened already
+            self.loadVMList()
+
+        if self.args.search_method == 'name':
+            return self.findVMsByName(self.args.search_argument)
+        elif self.args.search_method == 'ip':
+            return self.findVMByIP(self.args.search_argument)
+
+    def findVMsByName(self, name):
+        foundVMs = []
+
         for vm in self.vmList:
+            summary = vm.summary
+
+            if name == str(summary.config.name):
+                foundVMs.append(vm)
+
+        return foundVMs
+
+    def findVMByIP(self, ip):
+        foundVM = []
+
+        for vm in self.vmList:
+            summary = vm.summary
+
+            if ip == str(summary.guest.ipAddress):
+                foundVM.append(vm)
+                return foundVM
+
+    def displayVMs(self, list=None):
+        if list == None:
+            list = self.vmList
+
+        for vm in list:
             self.displayVM(vm)
+
+    def getMACAddressesVM(self, vm):
+        for nic in vm.guest.net:
+            return nic.macAddress
 
     def displayVM(self, vm, depth=1):
         if hasattr(vm, 'childEntity'):
@@ -130,3 +177,124 @@ class CloudManager(object):
     def turnOffVM(self, targets):
         tasks = [vm.PowerOff() for vm in self.vmList if vm.name in targets]
         self.WaitForTasks(tasks)
+
+    def rebootVM(self, targets):
+        tasks = [vm.RebootGuest() for vm in self.vmList if vm.name in targets]
+        self.WaitForTasks(tasks)
+
+    def deployOVF(self):
+        ovfd = self.getOVFDescriptor()
+
+        objs = self.getDeploymentObjects()
+        manager = self.conn.content.ovfManager
+        spec_params = vim.OvfManager.CreateImportSpecParams(diskProvisioning='sparse',entityName=self.args.new_name)
+        import_spec = manager.CreateImportSpec(ovfd,
+                                               objs["resource pool"],
+                                               objs["datastore"],
+                                               spec_params)
+        lease = objs["resource pool"].ImportVApp(import_spec.importSpec,
+                                                 objs["datacenter"].vmFolder)
+        while(True):
+            if (lease.state == vim.HttpNfcLease.State.ready):
+                # Assuming single VMDK.
+                url = lease.info.deviceUrl[0].url.replace('*', self.args.host)
+                # Spawn a dawmon thread to keep the lease active while POSTing
+                # VMDK.
+                keepalive_thread = Thread(target=self.keepLeaseAlive, args=(lease,))
+                keepalive_thread.start()
+                # POST the VMDK to the host via curl. Requests library would work
+                # too.
+                curl_cmd = (
+                    "curl -Ss -X POST --insecure -T %s -H 'Content-Type: \
+                    application/x-vnd.vmware-streamVmdk' %s" %
+                    (self.args.vmdk_path, url))
+                system(curl_cmd)
+                lease.HttpNfcLeaseComplete()
+                keepalive_thread.join()
+                return 0
+            elif (lease.state == vim.HttpNfcLease.State.error):
+                print "Lease error: " + lease.state.error
+                exit(1)
+        connect.Disconnect(si)
+
+    def keepLeaseAlive(self, lease):
+        """
+        Keeps the lease alive while POSTing the VMDK.
+        """
+        while(True):
+            sleep(5)
+            try:
+                # Choosing arbitrary percentage to keep the lease alive.
+                lease.HttpNfcLeaseProgress(50)
+                if (lease.state == vim.HttpNfcLease.State.done):
+                    return
+                # If the lease is released, we get an exception.
+                # Returning to kill the thread.
+            except:
+                return
+
+    def getOVFDescriptor(self):
+        """
+        Read in the OVF descriptor.
+        """
+        if path.exists(self.args.ovf_path):
+            with open(self.args.ovf_path, 'r') as f:
+                try:
+                    ovfd = f.read()
+                    f.close()
+                    print "OVF is ok!"
+                    return ovfd
+                except:
+                    print "Could not read file: %s" % ovf_path
+                exit(1)
+
+    def getDeploymentObjectFromList(self, obj_name, obj_list):
+        """
+        Gets an object out of a list (obj_list) whos name matches obj_name.
+        """
+        for o in obj_list:
+            if o.name == obj_name:
+                print "Matched " + str(o.name) + "!"
+                return o
+        print ("Unable to find object by the name of %s in list:\n%s" %
+               (o.name, map(lambda o: o.name, obj_list)))
+        exit(1)
+
+    def getDeploymentObjects(self):
+        """
+        Return a dict containing the necessary objects for deployment.
+        """
+        # Get datacenter object.
+        datacenter_list = self.conn.content.rootFolder.childEntity
+        if self.args.datacenter_name:
+            datacenter_obj = self.getDeploymentObjectFromList(self.args.datacenter_name, datacenter_list)
+        else:
+            datacenter_obj = datacenter_list[0]
+            print "Used default datacenter"
+
+        # Get datastore object.
+        datastore_list = datacenter_obj.datastoreFolder.childEntity
+        if self.args.datastore_name:
+            datastore_obj = self.getDeploymentObjectFromList(self.args.datastore_name, datastore_list)
+            print "Got datastore"
+        elif len(datastore_list) > 0:
+            datastore_obj = datastore_list[0]
+            print "Got datastore without using the name"
+        else:
+            print "No datastores found in DC (%s)." % datacenter_obj.name
+
+        # Get cluster object.
+        cluster_list = datacenter_obj.hostFolder.childEntity
+        if self.args.cluster_name:
+            cluster_obj = self.getDeploymentObjectFromList(self.args.cluster_name, cluster_list)
+        elif len(cluster_list) > 0:
+            cluster_obj = cluster_list[0]
+        else:
+            print "No clusters found in DC (%s)." % datacenter_obj.name
+
+        # Generate resource pool.
+        resource_pool_obj = cluster_obj.resourcePool
+
+        return {"datacenter": datacenter_obj,
+                "datastore": datastore_obj,
+                "resource pool": resource_pool_obj}

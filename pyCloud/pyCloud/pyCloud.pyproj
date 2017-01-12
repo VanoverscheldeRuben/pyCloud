@@ -39,6 +39,12 @@
     <Compile Include="deployOVF.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="displayMACVMs.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="findVMs.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="objects.tests\ServerTests.py">
       <SubType>Code</SubType>
     </Compile>
@@ -47,6 +53,12 @@
     </Compile>
     <Compile Include="objects\Server.py" />
     <Compile Include="objects\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="rebootVM.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="displayVMs.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="turnOffVM.py">

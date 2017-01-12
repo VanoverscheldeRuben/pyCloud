@@ -14,7 +14,7 @@ def main():
     cm.loadVMList()
 
     serv_name = arginput.getServerName()
-    cm.turnOnVM(serv_name)
+    cm.rebootVM(serv_name)
 
 if __name__ =='__main__':
     main();
