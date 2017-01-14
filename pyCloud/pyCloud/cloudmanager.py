@@ -21,11 +21,13 @@ import atexit
 import ssl
 
 import json
+import random
 
 class CloudManager(object):
     def __init__(self):
         self.maxVMDepth = 10
         self.createEmptyCert()
+	self.macParts = [0x00, 0x0c, 0x29]
 
     def createEmptyCert(self):
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
@@ -298,3 +300,8 @@ class CloudManager(object):
         return {"datacenter": datacenter_obj,
                 "datastore": datastore_obj,
                 "resource pool": resource_pool_obj}
+
+	def generateMACAddress(self):
+		for part in self.macParts:
+			print str(part)
+	
