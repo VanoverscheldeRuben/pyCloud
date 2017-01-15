@@ -301,7 +301,80 @@ class CloudManager(object):
                 "datastore": datastore_obj,
                 "resource pool": resource_pool_obj}
 
-	def generateMACAddress(self):
-		for part in self.macParts:
-			print str(part)
-	
+    def generateMACAddress(self):
+        mac = [ self.macParts[0], self.macParts[1], self.macParts[2],
+        random.randint(0x00, 0x7f),
+        random.randint(0x00, 0xff),
+        random.randint(0x00, 0xff) ]
+
+        return ':'.join(map(lambda x: "%02x" % x, mac))
+
+    def get_obj(self, content, vimtype, name):
+        """
+         Get the vsphere object associated with a given text name
+        """
+        obj = None
+        container = content.viewManager.CreateContainerView(content.rootFolder,
+                                                            vimtype, True)
+        for view in container.view:
+            if view.name == name:
+                obj = view
+                break
+        return obj
+
+    def assignRandomMAC(self, vm):
+        try:
+            newMAC = self.generateMACAddress()
+            content = self.conn.RetrieveContent()
+
+            # This code is for changing only one Interface. For multiple Interface
+            # Iterate through a loop of network names.
+            device_change = []
+            for device in vm.config.hardware.device:
+                if isinstance(device, vim.vm.device.VirtualEthernetCard):
+                    nicspec = vim.vm.device.VirtualDeviceSpec()
+                    nicspec.operation = \
+                        vim.vm.device.VirtualDeviceSpec.Operation.edit
+                    nicspec.device = device
+
+                    nicspec.device.macAddress = str(newMAC)
+                    print "Assigned new MAC address " + str(newMAC)
+
+                    nicspec.device.wakeOnLanEnabled = True
+
+                    if not self.args.is_VDS:
+                        nicspec.device.backing = \
+                            vim.vm.device.VirtualEthernetCard.NetworkBackingInfo()
+                        nicspec.device.backing.network = \
+                            self.get_obj(content, [vim.Network], self.args.network_name)
+                        nicspec.device.backing.deviceName = self.args.network_name
+                    else:
+                        network = self.get_obj(content,
+                                          [vim.dvs.DistributedVirtualPortgroup],
+                                          self.args.network_name)
+                        dvs_port_connection = vim.dvs.PortConnection()
+                        dvs_port_connection.portgroupKey = network.key
+                        dvs_port_connection.switchUuid = \
+                            network.config.distributedVirtualSwitch.uuid
+                        nicspec.device.backing = \
+                            vim.vm.device.VirtualEthernetCard. \
+                            DistributedVirtualPortBackingInfo()
+                        nicspec.device.backing.port = dvs_port_connection
+
+                    nicspec.device.connectable = \
+                        vim.vm.device.VirtualDevice.ConnectInfo()
+                    nicspec.device.connectable.startConnected = True
+                    nicspec.device.connectable.allowGuestControl = True
+                    device_change.append(nicspec)
+                    break
+
+            config_spec = vim.vm.ConfigSpec(deviceChange=device_change)
+            task = vm.ReconfigVM_Task(config_spec)
+            self.WaitForTasks([task])
+            print "Successfully changed network"
+
+        except vmodl.MethodFault as error:
+            print "Caught vmodl fault : " + error.msg
+            return -1
+
+        return 0

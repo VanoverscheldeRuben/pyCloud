@@ -18,6 +18,21 @@ def getServerConnectArgs():
     args = parser.parse_args()
     return args
 
+def getChangeMACArgs():
+    parser = argparse.ArgumentParser(description='Process args to connect to a server.')
+
+    parser.add_argument('-s', '--host', required=True, action='store', help='Remote host to connect to.')
+    parser.add_argument('-o', '--port', type=int, default=22, action='store', help='Port to connect on.')
+    parser.add_argument('-u', '--user', required=True, action='store', help='Username to log in with.')
+    parser.add_argument('-p', '--pwd', required=False, action='store', help='Password for user.')
+    parser.add_argument('-m', '--search_method', required=True, action='store', help='Search method.')
+    parser.add_argument('-a', '--search_argument', required=True, action='store', help='Search argument.')
+    parser.add_argument('-n', '--network_name', required=False, action='store', help='Name of the network/portgroup.')
+    parser.add_argument('-d', '--is_VDS', required=False, action='store_true', help='The provided network is in VDS or VSS.')
+
+    args = parser.parse_args()
+    return args
+
 def getServerConnectAndSearchArgs():
     parser = argparse.ArgumentParser(description='Process args to connect to a server.')
 

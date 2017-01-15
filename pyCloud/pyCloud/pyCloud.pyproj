@@ -30,6 +30,9 @@
     <Folder Include="objects\" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="alterMAC.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="arginput.py">
       <SubType>Code</SubType>
     </Compile>
