@@ -88,8 +88,9 @@ class CloudManager(object):
             self.displayVM(vm)
 
     def getMACAddressesVM(self, vm):
-        for nic in vm.guest.net:
-            return nic.macAddress
+        for dev in vm.config.hardware.device:
+            if isinstance(dev, vim.vm.device.VirtualEthernetCard):
+                return str(dev.macAddress)
 
     def displayVM(self, vm, depth=1):
         if hasattr(vm, 'childEntity'):
@@ -337,35 +338,15 @@ class CloudManager(object):
                         vim.vm.device.VirtualDeviceSpec.Operation.edit
                     nicspec.device = device
 
+                    print "Old MAC Address:\t" + str(nicspec.device.macAddress)
                     nicspec.device.macAddress = str(newMAC)
-                    print "Assigned new MAC address " + str(newMAC)
-
                     nicspec.device.wakeOnLanEnabled = True
 
-                    if not self.args.is_VDS:
-                        nicspec.device.backing = \
-                            vim.vm.device.VirtualEthernetCard.NetworkBackingInfo()
-                        nicspec.device.backing.network = \
-                            self.get_obj(content, [vim.Network], self.args.network_name)
-                        nicspec.device.backing.deviceName = self.args.network_name
-                    else:
-                        network = self.get_obj(content,
-                                          [vim.dvs.DistributedVirtualPortgroup],
-                                          self.args.network_name)
-                        dvs_port_connection = vim.dvs.PortConnection()
-                        dvs_port_connection.portgroupKey = network.key
-                        dvs_port_connection.switchUuid = \
-                            network.config.distributedVirtualSwitch.uuid
-                        nicspec.device.backing = \
-                            vim.vm.device.VirtualEthernetCard. \
-                            DistributedVirtualPortBackingInfo()
-                        nicspec.device.backing.port = dvs_port_connection
-
-                    nicspec.device.connectable = \
-                        vim.vm.device.VirtualDevice.ConnectInfo()
                     nicspec.device.connectable.startConnected = True
                     nicspec.device.connectable.allowGuestControl = True
                     device_change.append(nicspec)
+                    print "Added the NIC change to the list of tasks"
+                    print "New MAC Address:\t" + nicspec.device.macAddress
                     break
 
             config_spec = vim.vm.ConfigSpec(deviceChange=device_change)
