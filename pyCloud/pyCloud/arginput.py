@@ -28,7 +28,7 @@ def getChangeMACArgs():
     parser.add_argument('-m', '--search_method', required=True, action='store', help='Search method.')
     parser.add_argument('-a', '--search_argument', required=True, action='store', help='Search argument.')
     parser.add_argument('-n', '--network_name', required=False, action='store', help='Name of the network/portgroup.')
-    parser.add_argument('-d', '--is_VDS', required=False, action='store_true', help='The provided network is in VDS or VSS.')
+    parser.add_argument('-d', '--is_VDS', type=bool, required=False, action='store', help='The provided network is in VDS or VSS.')
 
     args = parser.parse_args()
     return args
