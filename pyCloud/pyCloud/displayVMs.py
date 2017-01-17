@@ -6,7 +6,7 @@ import arginput
 def main():
     cm = CloudManager()
 
-    args = arginput.getServerConnectArgs()
+    args = arginput.getArgs(['Host', 'Username', 'Password'])
     arginput.addPassword(args)
 
     cm.setArgs(args)
@@ -14,6 +14,8 @@ def main():
     cm.loadVMList()
 
     cm.displayVMs()
+
+    cm.disconnectFromServer()
 
 if __name__ =='__main__':
     main();

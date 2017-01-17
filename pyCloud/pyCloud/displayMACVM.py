@@ -6,18 +6,21 @@ import arginput
 def main():
     cm = CloudManager()
 
-    args = arginput.getServerConnectAndSearchArgs()
+    args = arginput.getArgs(['Host', 'Username', 'Password', 'SearchMethod', 'SearchArgument'])
     arginput.addPassword(args)
 
     cm.setArgs(args)
     cm.connectToServer()
     cm.loadVMList()
 
-    vms = cm.findVMs()
+    vm = cm.findVM()
+    print str(cm.getMACAddressesVM(vm))
     #cm.displayMACAddressesVMs(vms)
 
-    for vm in vms:
-        print str(cm.getMACAddressesVM(vm))
+    '''for vm in vms:
+        print str(cm.getMACAddressesVM(vm))'''
+
+    cm.disconnectFromServer()
 
 if __name__ =='__main__':
     main();

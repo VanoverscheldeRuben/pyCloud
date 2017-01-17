@@ -16,5 +16,7 @@ def main():
     serv_name = arginput.getServerName()
     cm.rebootVM(serv_name)
 
+    cm.disconnectFromServer()
+
 if __name__ =='__main__':
     main();

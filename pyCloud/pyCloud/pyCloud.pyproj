@@ -36,16 +36,22 @@
     <Compile Include="arginput.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="arguments.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="cloudmanager.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="createVM.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="deployOVF.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="displayMACVMs.py">
+    <Compile Include="displayMACVM.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="findVMs.py">
+    <Compile Include="findVM.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="objects.tests\ServerTests.py">
@@ -58,10 +64,16 @@
     <Compile Include="objects\__init__.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="powerstates.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="rebootVM.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="displayVMs.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="tasks.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="turnOffVM.py">

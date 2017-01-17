@@ -7,7 +7,66 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))'''
 
 import argparse
 
-def getServerConnectArgs():
+from arguments import Arguments
+
+def getArgs(requiredArgs):
+    parser = argparse.ArgumentParser(description='Process args to connect to a server.')
+
+    if Arguments.Host in requiredArgs:
+        parser.add_argument('-s', '--host', required=True, action='store', help='Remote host to connect to.')
+
+    if Arguments.Port in requiredArgs:
+        parser.add_argument('-o', '--port', type=int, default=22, action='store', help='Port to connect on.')
+
+    if Arguments.Username in requiredArgs:
+        parser.add_argument('-u', '--user', required=True, action='store', help='Username to log in with.')
+
+    if Arguments.Password in requiredArgs:
+        parser.add_argument('-p', '--pwd', required=False, action='store', help='Password for user.')
+
+    if Arguments.SearchMethod in requiredArgs:
+        parser.add_argument('-m', '--search_method', required=True, action='store', help='Search method.')
+
+    if Arguments.SearchArgument in requiredArgs:
+        parser.add_argument('-a', '--search_argument', required=True, action='store', help='Search argument.')
+
+    if Arguments.NetworkName in requiredArgs:
+        parser.add_argument('--network_name', required=False, action='store', help='Name of the network/portgroup.')
+
+    if Arguments.IsVDS in requiredArgs:
+        parser.add_argument('-d', '--is_VDS', type=bool, required=False, action='store', help='The provided network is in VDS or VSS.')
+
+    if Arguments.DatacenterName in requiredArgs:
+        parser.add_argument('--datacenter_name', required=False, action='store', default=None, help='Name of the Datacenter you wish to use. If omitted, the first datacenter will be used.')
+
+    if Arguments.DatastoreName in requiredArgs:
+        parser.add_argument('--datastore_name', required=False, action='store', default=None, help='Datastore you wish the VM to be deployed to. If left blank, VM will be put on the first datastore found.')
+    
+    if Arguments.ResourcePool in requiredArgs:
+        parser.add_argument('--resource_pool', required=False, action='store', default=None, help='The resource pool')
+
+    if Arguments.ClusterName in requiredArgs:
+        parser.add_argument('--cluster_name', required=False, action='store', default=None, help='Name of the cluster you wish the VM to end up on. If left blank the first cluster found will be used')
+    
+    if Arguments.VMDK_Path in requiredArgs:
+        parser.add_argument('-v', '--vmdk_path', required=True, action='store', default=None, help='Path of the VMDK file to deploy.')
+    
+    if Arguments.OVF_Path in requiredArgs:
+        parser.add_argument('-f', '--ovf_path', required=True, action='store', default=None, help='Path of the OVF file to deploy.')
+    
+    if Arguments.NewName in requiredArgs:
+        parser.add_argument('-n', '--new_name', required=True, action='store', default=None, help='The name of the new VM that will be deployed.')
+
+    if Arguments.HardDiskSize in requiredArgs:
+        parser.add_argument('--hard_disk_size', required=True, action='store', default=None, help='Size of the hard disk to add')
+
+    if Arguments.HardDiskType in requiredArgs:
+        parser.add_argument('--hard_disk_type', required=True, action='store', default=None, help='Type of the hard disk to add')
+
+    args = parser.parse_args()
+    return args
+
+'''def getServerConnectArgs():
     parser = argparse.ArgumentParser(description='Process args to connect to a server.')
 
     parser.add_argument('-s', '--host', required=True, action='store', help='Remote host to connect to.')
@@ -61,7 +120,7 @@ def getOVFDeployArgs():
     parser.add_argument('-n', '--new_name', required=True, action='store', default=None, help='The name of the new VM that will be deployed.')
 
     args = parser.parse_args()
-    return args
+    return args'''
 
 def getServerName():
     print "What's the name of the server you want to address?"

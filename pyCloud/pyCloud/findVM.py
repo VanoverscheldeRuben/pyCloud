@@ -6,15 +6,17 @@ import arginput
 def main():
     cm = CloudManager()
 
-    args = arginput.getServerConnectAndSearchArgs()
+    args = arginput.getArgs(['Host', 'Username', 'Password', 'SearchMethod', 'SearchArgument'])
     arginput.addPassword(args)
 
     cm.setArgs(args)
     cm.connectToServer()
     cm.loadVMList()
 
-    vms = cm.findVMs()
-    cm.displayVMs(vms)
+    vm = cm.findVM()
+    cm.displayVM(vm)
+
+    cm.disconnectFromServer()
 
 if __name__ =='__main__':
     main();

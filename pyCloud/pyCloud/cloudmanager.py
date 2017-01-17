@@ -23,11 +23,15 @@ import ssl
 import json
 import random
 
+import tasks
+
+from powerstates import Powerstates
+
 class CloudManager(object):
     def __init__(self):
         self.maxVMDepth = 10
         self.createEmptyCert()
-	self.macParts = [0x00, 0x0c, 0x29]
+        self.macParts = [0x00, 0x0c, 0x29]
 
     def createEmptyCert(self):
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
@@ -42,6 +46,12 @@ class CloudManager(object):
         except: # No valid certificate, try without one
             self.conn = SmartConnect(host=self.args.host, user=self.args.user, pwd=self.args.pwd, sslContext=self.context)
 
+    def disconnectFromServer(self):
+        Disconnect(self.conn)
+
+    def getPowerStateVM(self, vm):
+        return str(vm.summary.runtime.powerState)
+
     def loadVMList(self):
         content = self.conn.RetrieveContent()
         for child in content.rootFolder.childEntity:
@@ -50,25 +60,21 @@ class CloudManager(object):
                 vmFolder = datacenter.vmFolder
                 self.vmList = vmFolder.childEntity
 
-    def findVMs(self):
+    def findVM(self):
         if self.vmList == None: # Load all VMs in case that hasn't happened already
             self.loadVMList()
 
         if self.args.search_method == 'name':
-            return self.findVMsByName(self.args.search_argument)
+            return self.findVMByName(self.args.search_argument)
         elif self.args.search_method == 'ip':
             return self.findVMByIP(self.args.search_argument)
 
-    def findVMsByName(self, name):
-        foundVMs = []
-
+    def findVMByName(self, name):
         for vm in self.vmList:
             summary = vm.summary
 
             if name == str(summary.config.name):
-                foundVMs.append(vm)
-
-        return foundVMs
+                return vm
 
     def findVMByIP(self, ip):
         foundVM = []
@@ -173,17 +179,206 @@ class CloudManager(object):
           if filter:
              filter.Destroy()
 
-    def turnOnVM(self, targets):
-        tasks = [vm.PowerOn() for vm in self.vmList if vm.name in targets]
+    def turnOnVM(self, vm):
+        powerState = self.getPowerStateVM(vm)
+
+        if powerState == Powerstates.PoweredOff:
+            tasks = [vm.PowerOn()]
+            self.WaitForTasks(tasks)
+        else:
+            print "Unable to start vm, " + str(vm.summary.config.name) + " is already turned on!"
+
+    def turnOffVM(self, vm):
+        powerState = self.getPowerStateVM(vm)
+
+        if powerState == Powerstates.PoweredOn:
+            tasks = [vm.PowerOff()]
+            self.WaitForTasks(tasks)
+        else:
+            print "Unable to start vm, " + str(vm.summary.config.name) + " is already turned off!"
+
+    def rebootVM(self, vm):
+        tasks = [vm.RebootGuest() for vm in self.vmList if vm.name in vm]
         self.WaitForTasks(tasks)
 
-    def turnOffVM(self, targets):
-        tasks = [vm.PowerOff() for vm in self.vmList if vm.name in targets]
-        self.WaitForTasks(tasks)
+    def createVM(self):
+        """Creates a dummy VirtualMachine with 1 vCpu, 128MB of RAM.
+        :param name: String Name for the VirtualMachine
+        :param service_instance: ServiceInstance connection
+        :param vm_folder: Folder to place the VirtualMachine in
+        :param resource_pool: ResourcePool to place the VirtualMachine in
+        :param datastore: DataStrore to place the VirtualMachine on
+        """
+        content = self.conn.RetrieveContent()
+        datacenter = content.rootFolder.childEntity[0]
+        vmfolder = datacenter.vmFolder
+        hosts = datacenter.hostFolder.childEntity
+        resource_pool = hosts[0].resourcePool
 
-    def rebootVM(self, targets):
-        tasks = [vm.RebootGuest() for vm in self.vmList if vm.name in targets]
-        self.WaitForTasks(tasks)
+        vm_name = self.args.new_name
+        datastore_path = '[' + 'datastore1' + '] ' + vm_name
+
+        # bare minimum VM shell, no disks. Feel free to edit
+        vmx_file = vim.vm.FileInfo(logDirectory=None,
+                                   snapshotDirectory=None,
+                                   suspendDirectory=None,
+                                   vmPathName=datastore_path)
+
+        config = vim.vm.ConfigSpec(name=vm_name, memoryMB=512, numCPUs=1,
+                                   files=vmx_file, guestId='dosGuest',
+                                   version='vmx-11')
+
+        print "Creating VM {}...".format(vm_name)
+        task = vmfolder.CreateVM_Task(config=config, pool=resource_pool)
+        tasks.wait_for_tasks(self.conn, [task])
+
+        vm = self.get_obj(content, [vim.VirtualMachine], self.args.new_name)
+        return vm
+
+    def addSCSIController(self, vm):
+        print "Creating SCSI controller..."
+
+        spec = vim.vm.ConfigSpec()
+
+        dev_changes = []
+
+        ctrl_spec = vim.vm.device.VirtualDeviceSpec()
+        ctrl_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.add
+        ctrl_spec.device = vim.vm.device.ParaVirtualSCSIController()
+        ctrl_spec.device.busNumber = 0
+        ctrl_spec.device.controllerKey = 100
+        ctrl_spec.device.sharedBus = 'noSharing'
+        dev_changes.append(ctrl_spec)
+
+        spec.deviceChange = dev_changes
+
+        task = vm.ReconfigVM_Task(spec=spec)
+        tasks.wait_for_tasks(self.conn, [task])
+        print "Created SCSI controller"
+
+    def addHardDisk(self, vm):
+        print "Creating hard disk..."
+
+        spec = vim.vm.ConfigSpec()
+        # get all disks on a VM, set unit_number to the next available
+        unit_number = 0
+        for dev in vm.config.hardware.device:
+            if hasattr(dev.backing, 'fileName'):
+                unit_number = int(dev.unitNumber) + 1
+                # unit_number 7 reserved for scsi controller
+                if unit_number == 7:
+                    unit_number += 1
+                if unit_number >= 16:
+                    print "we don't support this many disks"
+                    return
+            if isinstance(dev, vim.vm.device.VirtualSCSIController):
+                controller = dev
+
+        # add disk here
+        dev_changes = []
+        new_disk_kb = int(self.args.hard_disk_size) * 1024 * 1024
+
+        disk_spec = vim.vm.device.VirtualDeviceSpec()
+        disk_spec.fileOperation = "create"
+        disk_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.add
+        disk_spec.device = vim.vm.device.VirtualDisk()
+        disk_spec.device.backing = \
+            vim.vm.device.VirtualDisk.FlatVer2BackingInfo()
+        if self.args.hard_disk_type == 'thin':
+            disk_spec.device.backing.thinProvisioned = True
+        disk_spec.device.backing.diskMode = 'persistent'
+        disk_spec.device.unitNumber = unit_number
+        disk_spec.device.capacityInKB = new_disk_kb
+        disk_spec.device.controllerKey = controller.key
+        dev_changes.append(disk_spec)
+
+        spec.deviceChange = dev_changes
+        #vm.ReconfigVM_Task(spec=spec)
+        #print "%sGB disk added to %s" % (self.args.hard_disk_size, vm.config.name)
+
+        task = vm.ReconfigVM_Task(spec=spec)
+        tasks.wait_for_tasks(self.conn, [task])
+        print "%sGB disk added to %s" % (self.args.hard_disk_size, vm.config.name)
+
+    def getPortGroup(self):
+        return vim.host.PortGroup
+
+    def addNIC(self, vm):
+        #print "Creating NIC...."
+
+        '''network = self.args.network_name
+        spec = vim.vm.ConfigSpec()
+        dev_changes = []
+        
+        nic_spec = vim.vm.device.VirtualDeviceSpec()
+        nic_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.add
+        
+        nic_spec.device = vim.vm.device.VirtualE1000()
+        
+        nic_spec.device.deviceInfo = vim.Description()
+        nic_spec.device.deviceInfo.summary = 'vCenter API test'
+        
+        nic_spec.device.backing = \
+            vim.vm.device.VirtualEthernetCard.NetworkBackingInfo()
+        nic_spec.device.backing.useAutoDetect = False
+        content = self.conn.RetrieveContent()
+        nic_spec.device.backing.network = self.get_obj(content, [vim.Network], network)
+        nic_spec.device.backing.deviceName = network
+        
+        nic_spec.device.connectable = vim.vm.device.VirtualDevice.ConnectInfo()
+        nic_spec.device.connectable.startConnected = True
+        nic_spec.device.connectable.startConnected = True
+        nic_spec.device.connectable.allowGuestControl = True
+        nic_spec.device.connectable.connected = False
+        nic_spec.device.connectable.status = 'untried'
+        nic_spec.device.wakeOnLanEnabled = True
+        nic_spec.device.addressType = 'assigned'
+        dev_changes.append(nic_spec)
+
+        spec.deviceChange = dev_changes
+
+        task = vm.ReconfigVM_Task(spec=spec)
+        tasks.wait_for_tasks(self.conn, [task])
+        print "Created NIC"'''
+        
+        print "Creating NIC...."
+
+        #add a NIC. the network Name must be set as the device name to create the NIC.
+        dev_changes = []
+        spec = vim.vm.ConfigSpec()
+        network = self.args.network_name
+        content = self.conn.RetrieveContent()
+
+        dev_changes = []
+
+        nic_spec = vim.vm.device.VirtualDeviceSpec()
+        nic_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.add
+        nic_spec.device = vim.vm.device.VirtualE1000()
+        nic_spec.device.deviceInfo = vim.Description()
+        nic_spec.device.deviceInfo.summary = 'VM Network'
+        nic_spec.device.backing = vim.vm.device.VirtualEthernetCard.NetworkBackingInfo()
+        nic_spec.device.backing.useAutoDetect = False
+        nic_spec.device.backing.network = self.get_obj(content, [vim.Network], network)
+        nic_spec.device.backing.deviceName = network
+        nic_spec.device.connectable = vim.vm.device.VirtualDevice.ConnectInfo()
+        nic_spec.device.connectable.startConnected = True
+        nic_spec.device.connectable.allowGuestControl = True 
+        nic_spec.device.connectable.connected = False
+        nic_spec.device.connectable.status = 'untried'
+        nic_spec.device.wakeOnLanEnabled = True
+
+        macAddress = str(self.generateMACAddress())
+        nic_spec.device.addressType = 'assigned'
+        nic_spec.device.macAddress = macAddress
+        os.system('razor update-tag-rule --name test --rule \'["has_macaddress", "' + macAddress + '"]\'')
+
+        dev_changes.append(nic_spec)
+
+        spec.deviceChange = dev_changes
+
+        task = vm.ReconfigVM_Task(spec=spec)
+        tasks.wait_for_tasks(self.conn, [task])
+        print "Created NIC"
 
     def deployOVF(self):
         ovfd = self.getOVFDescriptor()
@@ -324,39 +519,44 @@ class CloudManager(object):
         return obj
 
     def assignRandomMAC(self, vm):
-        try:
-            newMAC = self.generateMACAddress()
-            content = self.conn.RetrieveContent()
+        powerState = self.getPowerStateVM(vm)
 
-            # This code is for changing only one Interface. For multiple Interface
-            # Iterate through a loop of network names.
-            device_change = []
-            for device in vm.config.hardware.device:
-                if isinstance(device, vim.vm.device.VirtualEthernetCard):
-                    nicspec = vim.vm.device.VirtualDeviceSpec()
-                    nicspec.operation = \
-                        vim.vm.device.VirtualDeviceSpec.Operation.edit
-                    nicspec.device = device
+        if powerState == Powerstates.PoweredOff:
+            try:
+                newMAC = self.generateMACAddress()
+                content = self.conn.RetrieveContent()
 
-                    print "Old MAC Address:\t" + str(nicspec.device.macAddress)
-                    nicspec.device.macAddress = str(newMAC)
-                    nicspec.device.wakeOnLanEnabled = True
+                # This code is for changing only one Interface. For multiple Interface
+                # Iterate through a loop of network names.
+                device_change = []
+                for device in vm.config.hardware.device:
+                    if isinstance(device, vim.vm.device.VirtualEthernetCard):
+                        nicspec = vim.vm.device.VirtualDeviceSpec()
+                        nicspec.operation = \
+                            vim.vm.device.VirtualDeviceSpec.Operation.edit
+                        nicspec.device = device
 
-                    nicspec.device.connectable.startConnected = True
-                    nicspec.device.connectable.allowGuestControl = True
-                    device_change.append(nicspec)
-                    print "Added the NIC change to the list of tasks"
-                    print "New MAC Address:\t" + nicspec.device.macAddress
-                    break
+                        print "Old MAC Address:\t" + str(nicspec.device.macAddress)
+                        nicspec.device.macAddress = str(newMAC)
+                        nicspec.device.wakeOnLanEnabled = True
 
-            config_spec = vim.vm.ConfigSpec(deviceChange=device_change)
-            task = vm.ReconfigVM_Task(config_spec)
-            self.wait_for_tasks(self.conn, [task])
-            print "Successfully changed network"
+                        nicspec.device.connectable.startConnected = True
+                        nicspec.device.connectable.allowGuestControl = True
+                        device_change.append(nicspec)
+                        print "Added the NIC change to the list of tasks"
+                        print "New MAC Address:\t" + nicspec.device.macAddress
+                        break
 
-        except vmodl.MethodFault as error:
-            print "Caught vmodl fault : " + error.msg
-            return -1
+                config_spec = vim.vm.ConfigSpec(deviceChange=device_change)
+                task = vm.ReconfigVM_Task(config_spec)
+                self.wait_for_tasks(self.conn, [task])
+                print "Successfully changed network"
+
+            except vmodl.MethodFault as error:
+                print "Caught vmodl fault : " + error.msg
+                return -1
+        else:
+            print "The virtual machine has to be powered off before you give it a new MAC address"
 
         return 0
 

@@ -5,19 +5,19 @@ import arginput
 
 def main():
     cm = CloudManager()
-    #print str(cm.generateMACAddress())
 
-    args = arginput.getArgs(['Host', 'Username', 'Password', 'SearchMethod', 'SearchArgument', 'NetworkName', 'IsVDS'])
+    args = arginput.getArgs(['Host', 'Username', 'Password', 'NewName', 'DatastoreName', 'HardDiskSize', 'HardDiskType', 'NetworkName'])
     arginput.addPassword(args)
 
     cm.setArgs(args)
     cm.connectToServer()
     cm.loadVMList()
 
-    vm = cm.findVM()
-    cm.displayVM(vm)
+    vm = cm.createVM()
 
-    cm.assignRandomMAC(vm)
+    cm.addSCSIController(vm)
+    cm.addHardDisk(vm)
+    cm.addNIC(vm)
 
     cm.disconnectFromServer()
 
