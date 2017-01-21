@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import sys
 reload(sys)
 sys.setdefaultencoding("utf-8")
@@ -224,7 +225,7 @@ class CloudManager(object):
                                    suspendDirectory=None,
                                    vmPathName=datastore_path)
 
-        config = vim.vm.ConfigSpec(name=vm_name, memoryMB=512, numCPUs=1,
+        config = vim.vm.ConfigSpec(name=vm_name, memoryMB=2048, numCPUs=1,
                                    files=vmx_file, guestId='dosGuest',
                                    version='vmx-11')
 
@@ -254,7 +255,7 @@ class CloudManager(object):
 
         task = vm.ReconfigVM_Task(spec=spec)
         tasks.wait_for_tasks(self.conn, [task])
-        print "Created SCSI controller"
+        print "Created SCSI controller\n"
 
     def addHardDisk(self, vm):
         print "Creating hard disk..."
@@ -298,7 +299,7 @@ class CloudManager(object):
 
         task = vm.ReconfigVM_Task(spec=spec)
         tasks.wait_for_tasks(self.conn, [task])
-        print "%sGB disk added to %s" % (self.args.hard_disk_size, vm.config.name)
+        print "%sGB disk added to %s\n" % (self.args.hard_disk_size, vm.config.name)
 
     def getPortGroup(self):
         return vim.host.PortGroup
@@ -368,9 +369,9 @@ class CloudManager(object):
         nic_spec.device.wakeOnLanEnabled = True
 
         macAddress = str(self.generateMACAddress())
-        nic_spec.device.addressType = 'assigned'
+        nic_spec.device.addressType = 'generated'
         nic_spec.device.macAddress = macAddress
-        os.system('razor update-tag-rule --name test --rule \'["has_macaddress", "' + macAddress + '"]\'')
+        os.system('razor update-tag-rule --name centos7_test --force --rule \'["=", ["fact", "macaddress"], "' + macAddress + '"]\'')
 
         dev_changes.append(nic_spec)
 
@@ -378,7 +379,7 @@ class CloudManager(object):
 
         task = vm.ReconfigVM_Task(spec=spec)
         tasks.wait_for_tasks(self.conn, [task])
-        print "Created NIC"
+        print "Created NIC\n"
 
     def deployOVF(self):
         ovfd = self.getOVFDescriptor()

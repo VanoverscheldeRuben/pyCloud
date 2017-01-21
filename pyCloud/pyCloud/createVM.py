@@ -19,6 +19,8 @@ def main():
     cm.addHardDisk(vm)
     cm.addNIC(vm)
 
+    cm.turnOnVM(vm)
+
     cm.disconnectFromServer()
 
 if __name__ =='__main__':
