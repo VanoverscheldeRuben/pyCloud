@@ -16,3 +16,4 @@ class Arguments(object):
     NewName = 'NewName'
     HardDiskSize = 'HardDiskSize'
     HardDiskType = 'HardDiskType'
+    Task = 'Task'

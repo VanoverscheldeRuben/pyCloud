@@ -63,6 +63,9 @@ def getArgs(requiredArgs):
     if Arguments.HardDiskType in requiredArgs:
         parser.add_argument('--hard_disk_type', required=True, action='store', default=None, help='Type of the hard disk to add')
 
+    if Arguments.Task in requiredArgs:
+        parser.add_argument('--task', required=True, action='store', default=None, help='Task to perform when the VM boots up')
+
     args = parser.parse_args()
     return args
 

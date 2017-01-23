@@ -6,7 +6,7 @@ import arginput
 def main():
     cm = CloudManager()
 
-    args = arginput.getArgs(['Host', 'Username', 'Password', 'NewName', 'DatastoreName', 'HardDiskSize', 'HardDiskType', 'NetworkName'])
+    args = arginput.getArgs(['Host', 'Username', 'Password', 'NewName', 'DatastoreName', 'HardDiskSize', 'HardDiskType', 'NetworkName', 'Task'])
     arginput.addPassword(args)
 
     cm.setArgs(args)
