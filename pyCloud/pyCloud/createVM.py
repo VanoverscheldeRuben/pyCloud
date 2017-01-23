@@ -18,7 +18,7 @@ def main():
     cm.addSCSIController(vm)
     cm.addHardDisk(vm)
     cm.addNIC(vm)
-
+    cm.assignRandomMAC(vm)
     cm.turnOnVM(vm)
 
     cm.disconnectFromServer()

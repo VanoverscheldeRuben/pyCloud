@@ -32,7 +32,7 @@ class CloudManager(object):
     def __init__(self):
         self.maxVMDepth = 10
         self.createEmptyCert()
-        self.macParts = [0x00, 0x0c, 0x29]
+        self.macParts = [0x00, 0x0c, 0x28]
 
     def createEmptyCert(self):
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
@@ -369,10 +369,23 @@ class CloudManager(object):
         nic_spec.device.wakeOnLanEnabled = True
 
         macAddress = str(self.generateMACAddress())
-        nic_spec.device.addressType = 'generated'
-        nic_spec.device.macAddress = macAddress
-        os.system('razor update-tag-rule --name centos7_test --force --rule \'["=", ["fact", "macaddress"], "' + macAddress + '"]\'')
+	#nic_spec.device.checkMACAddress = "false"
+        #nic_spec.device.addressType = 'manual'
+	'''nic_spec.device.macAddress = macAddress
+	macList = open("MACs", "a")
+	macList.write(macAddress + "\n")
+	macList.close()
+	macList = open("MACs")
+	cmd = 'razor update-tag-rule --name test --force --rule \'["in", ["fact", "macaddress"]'
+	for line in macList.readlines():
+		cmd = cmd + ', "' + line.rstrip("\n") + '"'
+	cmd = cmd + "]\'"
+	#print cmd
+	os.system(cmd)
 
+        #os.system('razor update-tag-rule --name centos7_test --force --rule \'["=", ["fact", "macaddress"], "' + macAddress + '"]\'')
+
+	macList.close()'''
         dev_changes.append(nic_spec)
 
         spec.deviceChange = dev_changes
@@ -538,6 +551,7 @@ class CloudManager(object):
                         nicspec.device = device
 
                         print "Old MAC Address:\t" + str(nicspec.device.macAddress)
+        		nicspec.device.addressType = 'manual'
                         nicspec.device.macAddress = str(newMAC)
                         nicspec.device.wakeOnLanEnabled = True
 
@@ -546,6 +560,16 @@ class CloudManager(object):
                         device_change.append(nicspec)
                         print "Added the NIC change to the list of tasks"
                         print "New MAC Address:\t" + nicspec.device.macAddress
+			macList = open("MACs", "a")
+			macList.write(newMAC + "\n")
+			macList.close()
+			macList = open("MACs")
+			cmd = 'razor update-tag-rule --name test --force --rule \'["in", ["fact", "macaddress"]'
+			for line in macList.readlines():
+				cmd = cmd + ', "' + line.rstrip("\n") + '"'
+			cmd = cmd + "]\'"
+			os.system(cmd)
+			macList.close()
                         break
 
                 config_spec = vim.vm.ConfigSpec(deviceChange=device_change)
