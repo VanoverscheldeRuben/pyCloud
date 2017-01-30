@@ -561,28 +561,29 @@ class CloudManager(object):
                         print "Added the NIC change to the list of tasks"
                         print "New MAC Address:\t" + nicspec.device.macAddress
 
-			macFileName = "MACs"
-			tagName = "test"
-			if self.args.task == "centos":
+			if self.args.task != None:
 				macFileName = "MACs"
 				tagName = "test"
-			elif self.args.task == "ubuntu":
-				macFileName = "MACs_ubuntu"
-				tagName = "ubuntu15_test"
-			elif self.args.task == "centos_pe":
-				macFileName = "MACs_centos_pe"
-				tagName = "centos_pe_tag"
+				if self.args.task == "centos":
+					macFileName = "MACs"
+					tagName = "test"
+				elif self.args.task == "ubuntu":
+					macFileName = "MACs_ubuntu"
+					tagName = "ubuntu15_test"
+				elif self.args.task == "centos_pe":
+					macFileName = "MACs_centos_pe"
+					tagName = "centos_pe_tag"
 
-			macList = open(macFileName, "a")
-			macList.write(newMAC + "\n")
-			macList.close()
-			macList = open(macFileName)
-			cmd = 'razor update-tag-rule --name ' + tagName + ' --force --rule \'["in", ["fact", "macaddress"]'
-			for line in macList.readlines():
-				cmd = cmd + ', "' + line.rstrip("\n") + '"'
-			cmd = cmd + "]\'"
-			os.system(cmd)
-			macList.close()
+				macList = open(macFileName, "a")
+				macList.write(newMAC + "\n")
+				macList.close()
+				macList = open(macFileName)
+				cmd = 'razor update-tag-rule --name ' + tagName + ' --force --rule \'["in", ["fact", "macaddress"]'
+				for line in macList.readlines():
+					cmd = cmd + ', "' + line.rstrip("\n") + '"'
+				cmd = cmd + "]\'"
+				os.system(cmd)
+				macList.close()
                         break
 
                 config_spec = vim.vm.ConfigSpec(deviceChange=device_change)
