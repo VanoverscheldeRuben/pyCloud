@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-from cloudmanager import CloudManager
-import arginput
+from Cloud.cloudmanager import CloudManager
+from Input import arginput
 
 def main():
     cm = CloudManager()

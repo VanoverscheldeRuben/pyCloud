@@ -1,23 +1,27 @@
 #!/usr/bin/env python
 
-from cloudmanager import CloudManager
-import arginput
+from Cloud.cloudmanager import CloudManager
+from Power.powermanager import PowerManager
+from Input import arginput
+
 
 def main():
     cm = CloudManager()
+    pm = PowerManager()
 
-    #args = arginput.getServerConnectArgs()
     args = arginput.getArgs(['Host', 'Username', 'Password', 'SearchMethod', 'SearchArgument'])
     arginput.addPassword(args)
 
     cm.setArgs(args)
+
     cm.connectToServer()
+    conn = cm.getConnection()
+    pm.setConnection(conn)
+
     cm.loadVMList()
 
-    #serv_name = arginput.getServerName()
-    #vm = cm.findVMByName(serv_name)
     vm = cm.findVM()
-    cm.turnOnVM(vm)
+    pm.turnOnVM(vm)
 
     cm.disconnectFromServer()
 

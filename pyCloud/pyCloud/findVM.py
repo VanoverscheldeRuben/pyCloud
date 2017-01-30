@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-from cloudmanager import CloudManager
-import arginput
+from Cloud.cloudmanager import CloudManager
+from Input import arginput
 
 def main():
     cm = CloudManager()
@@ -14,7 +14,11 @@ def main():
     cm.loadVMList()
 
     vm = cm.findVM()
-    cm.displayVM(vm)
+
+    if vm != None:
+        cm.displayVM(vm)
+    else:
+        print "No VM found"
 
     cm.disconnectFromServer()
 

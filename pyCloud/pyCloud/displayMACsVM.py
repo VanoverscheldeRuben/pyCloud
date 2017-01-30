@@ -1,26 +1,25 @@
 #!/usr/bin/env python
 
 from Cloud.cloudmanager import CloudManager
-from Power.powermanager import PowerManager
+from Hardware.hardwaremanager import HardwareManager
 from Input import arginput
 
 def main():
     cm = CloudManager()
-    pm = PowerManager()
+    hm = HardwareManager()
 
     args = arginput.getArgs(['Host', 'Username', 'Password', 'SearchMethod', 'SearchArgument'])
     arginput.addPassword(args)
 
     cm.setArgs(args)
-    
     cm.connectToServer()
-    conn = cm.getConnection()
-    pm.setConnection(conn)
-
     cm.loadVMList()
 
     vm = cm.findVM()
-    pm.rebootVM(vm)
+    macList = hm.getMACAddressesVM(vm)
+
+    for mac in macList:
+        print mac
 
     cm.disconnectFromServer()
 
