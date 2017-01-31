@@ -17,5 +17,6 @@ class Arguments(object):
     Memory = 'Memory'
     HardDiskSize = 'HardDiskSize'
     HardDiskType = 'HardDiskType'
+    ISO_Path = 'ISO_Path'
     Task = 'Task'
     PowerOn = 'PowerOn'

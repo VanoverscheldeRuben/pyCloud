@@ -66,6 +66,9 @@ def getArgs(requiredArgs):
     if Arguments.HardDiskType in requiredArgs:
         parser.add_argument('--hard_disk_type', required=True, action='store', default=None, help='Type of the hard disk to add')
 
+    if Arguments.ISO_Path in requiredArgs:
+        parser.add_argument('--iso_path', required=True, action='store', default=None, help='Location of the ISO file to mount on the CD drive')
+
     if Arguments.Task in requiredArgs:
         parser.add_argument('--task', required=False, action='store', default=None, help='Task to perform when the VM boots up')
 

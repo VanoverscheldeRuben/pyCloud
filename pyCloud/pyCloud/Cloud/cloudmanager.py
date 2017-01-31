@@ -15,7 +15,7 @@ from pyVim.connect import SmartConnect, Disconnect
 
 import ssl
 
-from Tools.tools import waitForTasks, getObj, getOVFDescriptor, keepLeaseAlive
+from Tools.tools import waitForTasks, getObj, getOVFDescriptor, keepLeaseAlive, getDeploymentObjects
 
 class CloudManager(object):
     def __init__(self):
@@ -141,7 +141,7 @@ class CloudManager(object):
     def deployOVF(self):
         ovfd = getOVFDescriptor(self.args.ovf_path)
 
-        objs = self.getDeploymentObjects()
+        objs = getDeploymentObjects(self.conn, self.args.datacenter_name, self.args.datastore_name, self.args.cluster_name)
         manager = self.conn.content.ovfManager
         spec_params = vim.OvfManager.CreateImportSpecParams(diskProvisioning='sparse',entityName=self.args.new_name)
         import_spec = manager.CreateImportSpec(ovfd,
@@ -172,51 +172,3 @@ class CloudManager(object):
                 print "Lease error: " + lease.state.error
                 exit(1)
         connect.Disconnect(si)
-
-    def getDeploymentObjects(self):
-        # Get datacenter object.
-        datacenter_list = self.conn.content.rootFolder.childEntity
-        if self.args.datacenter_name:
-            datacenter_obj = self.getDeploymentObjectFromList(self.args.datacenter_name, datacenter_list)
-        else:
-            datacenter_obj = datacenter_list[0]
-            print "Used default datacenter"
-
-        # Get datastore object.
-        datastore_list = datacenter_obj.datastoreFolder.childEntity
-        if self.args.datastore_name:
-            datastore_obj = self.getDeploymentObjectFromList(self.args.datastore_name, datastore_list)
-            print "Got datastore"
-        elif len(datastore_list) > 0:
-            datastore_obj = datastore_list[0]
-            print "Got datastore without using the name"
-        else:
-            print "No datastores found in DC (%s)." % datacenter_obj.name
-
-        # Get cluster object.
-        cluster_list = datacenter_obj.hostFolder.childEntity
-        if self.args.cluster_name:
-            cluster_obj = self.getDeploymentObjectFromList(self.args.cluster_name, cluster_list)
-        elif len(cluster_list) > 0:
-            cluster_obj = cluster_list[0]
-        else:
-            print "No clusters found in DC (%s)." % datacenter_obj.name
-
-        # Generate resource pool.
-        resource_pool_obj = cluster_obj.resourcePool
-
-        return {"datacenter": datacenter_obj,
-                "datastore": datastore_obj,
-                "resource pool": resource_pool_obj}
-
-    def getDeploymentObjectFromList(self, obj_name, obj_list):
-        """
-        Gets an object out of a list (obj_list) whos name matches obj_name.
-        """
-        for o in obj_list:
-            if o.name == obj_name:
-                print "Matched " + str(o.name) + "!"
-                return o
-        print ("Unable to find object by the name of %s in list:\n%s" %
-               (o.name, map(lambda o: o.name, obj_list)))
-        exit(1)

@@ -12,13 +12,13 @@ import random
 
 from Power.powermanager import PowerManager
 from Power.powerstates import Powerstates
-from Tools.tools import waitForTasks, getObj
+from Tools.tools import waitForTasks, getObj, getDeploymentObjects
 
 
 class HardwareManager(object):
     def __init__(self):
         self.pm = PowerManager()
-	self.registeredMacDir = '/home/user/.RegisteredMACs/'
+        self.registeredMacDir = '/home/user/.RegisteredMACs/'
         self.macParts = [0x00, 0x0c, 0x28]
 
     def setArgs(self, args):
@@ -56,6 +56,70 @@ class HardwareManager(object):
         task = vm.ReconfigVM_Task(spec=spec)
         waitForTasks(self.conn, [task])
         print "Created SCSI controller\n"
+
+    def addIDEController(self, vm):
+        print "Creating IDE controller..."
+
+        spec = vim.vm.ConfigSpec()
+
+        dev_changes = []
+
+        ctrl_spec = vim.vm.device.VirtualDeviceSpec()
+        ctrl_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.add
+        ctrl_spec.device = vim.vm.device.VirtualIDEController()
+        ctrl_spec.device.busNumber = 0
+        ctrl_spec.device.controllerKey = 200
+        dev_changes.append(ctrl_spec)
+
+        spec.deviceChange = dev_changes
+
+        task = vm.ReconfigVM_Task(spec=spec)
+        waitForTasks(self.conn, [task])
+        print "Created IDE controller\n"
+
+    def findFreeIDEController(self, vm):
+        for dev in vm.config.hardware.device:
+            if isinstance(dev, vim.vm.device.VirtualIDEController):
+                # If there are less than 2 devices attached, we can use it.
+                if len(dev.device) < 2:
+                    return dev
+        return None
+
+    def addCDDrive(self, vm):
+        print "Creating CD drive..."
+
+        controller = self.findFreeIDEController(vm)
+        if controller != None:
+            spec = vim.vm.ConfigSpec()
+            dev_changes = []
+
+            dev_spec = vim.vm.device.VirtualDeviceSpec()
+            dev_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.add
+
+            connectable = vim.vm.device.VirtualDevice.ConnectInfo()
+            connectable.allowGuestControl = True
+            connectable.startConnected = True
+            connectable.connected = False
+            connectable.status = 'untried'
+
+            dev_spec.device = vim.vm.device.VirtualCdrom()
+            dev_spec.device.controllerKey = controller.key
+            dev_spec.device.key = -1
+            dev_spec.device.connectable = connectable
+
+            dev_spec.device.backing = vim.vm.device.VirtualCdrom.IsoBackingInfo() # Mount an ISO file to the CD drive
+            objs = getDeploymentObjects(self.conn)
+            dev_spec.device.backing.datastore = objs["datastore"]
+            dev_spec.device.backing.fileName = self.args.iso_path
+
+            dev_changes.append(dev_spec)
+            spec.deviceChange = dev_changes
+            task = vm.ReconfigVM_Task(spec=spec)
+            waitForTasks(self.conn, [task])
+
+            print "Created CD drive\n"
+        else:
+            print 'Unable to add CD drive, no free IDE controller available'
 
     def addHardDisk(self, vm):
         print "Creating hard disk..."
@@ -171,32 +235,33 @@ class HardwareManager(object):
                         print "New MAC Address:\t" + nicspec.device.macAddress
                         
                         if self.args.task != None:
-                            macFileName = "centos"
-                            tagName = "test"
-                        elif self.args.task == "centos":
-                            macFileName = "centos"
-                            tagName = "test"
-                        elif self.args.task == "ubuntu":
-                            macFileName = "ubuntu"
-                            tagName = "ubuntu15_test"
-                        elif self.args.task == "centos_pe":
-                            macFileName = "centos_pe"
-                            tagName = "centos_pe_tag"
+                            if self.args.task == "centos":
+                                macFileName = "centos"
+                                tagName = "test"
+                            elif self.args.task == "ubuntu":
+                                macFileName = "ubuntu"
+                                tagName = "ubuntu15_test"
+                            elif self.args.task == "centos_pe":
+                                macFileName = "centos_pe"
+                                tagName = "centos_pe_tag"
+                            else:
+                                print 'Task not recognized, using the default task instead'
+                                macFileName = "centos"
+                                tagName = "test"
 
+                            path = self.registeredMacDir + macFileName
+                            macList = open(path, "a")
+                            macList.write(newMAC + "\n")
+                            macList.close()
 
-                        path = self.registeredMacDir + macFileName
-                        macList = open(path, "a")
-			macList.write(newMAC + "\n")
-                        macList.close()
+                            macList = open(path)
+                            cmd = 'razor update-tag-rule --name ' + tagName + ' --force --rule \'["in", ["fact", "macaddress"]'
+                            for line in macList.readlines():
+                                cmd = cmd + ', "' + line.rstrip("\n") + '"'
 
-                        macList = open(path)
-                        cmd = 'razor update-tag-rule --name ' + tagName + ' --force --rule \'["in", ["fact", "macaddress"]'
-                        for line in macList.readlines():
-                            cmd = cmd + ', "' + line.rstrip("\n") + '"'
-
-                        cmd = cmd + "]\'"
-                        os.system(cmd)
-                        macList.close()
+                            cmd = cmd + "]\'"
+                            os.system(cmd)
+                            macList.close()
 
                         break
 

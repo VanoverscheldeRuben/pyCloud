@@ -41,6 +41,51 @@ def getOVFDescriptor(ovf_path):
                 print "Could not read file: %s" % ovf_path
             exit(1)
 
+def getDeploymentObjects(conn, datacenter_name=None, datastore_name=None, cluster_name=None):
+    # Get datacenter object.
+    datacenter_list = conn.content.rootFolder.childEntity
+    if datacenter_name:
+        datacenter_obj = getDeploymentObjectFromList(datacenter_name, datacenter_list)
+    else:
+        datacenter_obj = datacenter_list[0]
+    
+    # Get datastore object.
+    datastore_list = datacenter_obj.datastoreFolder.childEntity
+    if datastore_name:
+        datastore_obj = getDeploymentObjectFromList(datastore_name, datastore_list)
+    elif len(datastore_list) > 0:
+        datastore_obj = datastore_list[0]
+    else:
+        print "No datastores found in DC (%s)." % datacenter_obj.name
+    
+    # Get cluster object.
+    cluster_list = datacenter_obj.hostFolder.childEntity
+    if cluster_name:
+        cluster_obj = getDeploymentObjectFromList(cluster_name, cluster_list)
+    elif len(cluster_list) > 0:
+        cluster_obj = cluster_list[0]
+    else:
+        print "No clusters found in DC (%s)." % datacenter_obj.name
+    
+    # Generate resource pool.
+    resource_pool_obj = cluster_obj.resourcePool
+    
+    return {"datacenter": datacenter_obj,
+            "datastore": datastore_obj,
+            "resource pool": resource_pool_obj}
+
+def getDeploymentObjectFromList(obj_name, obj_list):
+    """
+    Gets an object out of a list (obj_list) whos name matches obj_name.
+    """
+    for o in obj_list:
+        if o.name == obj_name:
+            print "Matched " + str(o.name) + "!"
+            return o
+    print ("Unable to find object by the name of %s in list:\n%s" %
+           (o.name, map(lambda o: o.name, obj_list)))
+    exit(1)
+
 def getObj(content, vimtype, name):
     """
      Get the vsphere object associated with a given text name
