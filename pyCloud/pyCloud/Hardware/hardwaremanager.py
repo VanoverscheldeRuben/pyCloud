@@ -36,6 +36,16 @@ class HardwareManager(object):
 
         return macList
 
+    def ajustMemory(self, vm):
+        print "Adjusting memory vm..."
+
+        spec = vim.vm.ConfigSpec()
+        spec.memoryMB = int(self.args.memory)
+        task = vm.ReconfigVM_Task(spec=spec)
+        waitForTasks(self.conn, [task])
+
+        print "Set memory to " + str(self.args.memory) + " MB\n"
+
     def addSCSIController(self, vm):
         print "Creating SCSI controller..."
 
