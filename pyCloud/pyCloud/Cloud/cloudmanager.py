@@ -135,6 +135,16 @@ class CloudManager(object):
         vm = getObj(content, [vim.VirtualMachine], self.args.new_name)
         return vm
 
+    def destroyVM(self, vm):
+        name = vm.summary.config.name
+
+        print('Destroying vm ' + name + '...')
+
+        task = vm.Destroy_Task()
+        waitForTasks(self.conn, [task])
+
+        print('Destroyed vm ' + name)
+
     def getPortGroup(self):
         return vim.host.PortGroup
 
