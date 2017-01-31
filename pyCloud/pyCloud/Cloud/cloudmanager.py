@@ -57,6 +57,8 @@ class CloudManager(object):
             return self.findVMByName(self.args.search_argument)
         elif self.args.search_method == 'ip':
             return self.findVMByIP(self.args.search_argument)
+        elif self.args.search_method == 'uuid':
+            return self.findVMByUUID(self.args.search_argument)
 
     def findVMByName(self, name):
         for vm in self.vmList:
@@ -70,6 +72,13 @@ class CloudManager(object):
             summary = vm.summary
 
             if ip == str(summary.guest.ipAddress):
+                return vm
+
+    def findVMByUUID(self, uuid):
+        for vm in self.vmList:
+            summary = vm.summary
+
+            if uuid == str(summary.config.uuid):
                 return vm
 
     def displayVMs(self, list=None):
@@ -92,6 +101,9 @@ class CloudManager(object):
         print "Name:\t" + str(summary.config.name)
         print "Path:\t" + str(summary.config.vmPathName)
         print "Guest:\t" + str(summary.config.guestFullName)
+        print 'Guest OS id:\t' + str(summary.config.guestId)
+        print 'Instance UUID:\t' + str(summary.config.instanceUuid)
+        print 'Bios UUID:\t' + str(summary.config.uuid)
 
         annotation = summary.config.annotation
         if annotation != None and annotation != "":
@@ -106,6 +118,11 @@ class CloudManager(object):
 
         if summary.runtime.question != None:
             print "Question:\t" + summary.runtime.question.text
+
+        print ''
+        print 'Runtime info'
+        print 'Host name:\t' + str(vm.runtime.host.name)
+        print 'Last booted timestamp:\t' + str(vm.runtime.bootTime)
 
         print ""
 
