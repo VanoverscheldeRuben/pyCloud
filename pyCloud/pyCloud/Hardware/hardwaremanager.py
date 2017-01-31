@@ -77,6 +77,25 @@ class HardwareManager(object):
         waitForTasks(self.conn, [task])
         print "Created IDE controller\n"
 
+    def addUSBController(self, vm):
+        print "Creating USB controller..."
+
+        spec = vim.vm.ConfigSpec()
+
+        dev_changes = []
+
+        ctrl_spec = vim.vm.device.VirtualDeviceSpec()
+        ctrl_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.add
+        ctrl_spec.device = vim.vm.device.VirtualUSBController()
+        ctrl_spec.device.controllerKey = 300
+        dev_changes.append(ctrl_spec)
+
+        spec.deviceChange = dev_changes
+
+        task = vm.ReconfigVM_Task(spec=spec)
+        waitForTasks(self.conn, [task])
+        print "Created USB controller\n"
+
     def findFreeIDEController(self, vm):
         for dev in vm.config.hardware.device:
             if isinstance(dev, vim.vm.device.VirtualIDEController):

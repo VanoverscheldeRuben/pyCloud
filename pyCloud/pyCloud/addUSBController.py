@@ -8,7 +8,7 @@ def main():
     cm = CloudManager()
     hm = HardwareManager()
 
-    args = arginput.getArgs(['Host', 'Username', 'Password', 'SearchMethod', 'SearchArgument', 'ISO_Path'])
+    args = arginput.getArgs(['Host', 'Username', 'Password', 'SearchMethod', 'SearchArgument'])
     arginput.addPassword(args)
 
     cm.setArgs(args)
@@ -23,9 +23,8 @@ def main():
     vm = cm.findVM()
 
     if vm != None:
-        ''' Add a CD drive to the VM '''
-        hm.addIDEController(vm)
-        hm.addCDDrive(vm)
+        ''' Add a USB controller to the VM '''
+        hm.addUSBController(vm)
     else:
         print "No VM found"
 
