@@ -87,6 +87,14 @@ class HardwareManager(object):
         waitForTasks(self.conn, [task])
         print "Created IDE controller\n"
 
+    def findFreeIDEController(self, vm):
+        for dev in vm.config.hardware.device:
+            if isinstance(dev, vim.vm.device.VirtualIDEController):
+                # If there are less than 2 devices attached, we can use it.
+                if len(dev.device) < 2:
+                    return dev
+        return None
+
     def addUSBController(self, vm):
         print "Creating USB controller..."
 
@@ -105,14 +113,6 @@ class HardwareManager(object):
         task = vm.ReconfigVM_Task(spec=spec)
         waitForTasks(self.conn, [task])
         print "Created USB controller\n"
-
-    def findFreeIDEController(self, vm):
-        for dev in vm.config.hardware.device:
-            if isinstance(dev, vim.vm.device.VirtualIDEController):
-                # If there are less than 2 devices attached, we can use it.
-                if len(dev.device) < 2:
-                    return dev
-        return None
 
     def addCDDrive(self, vm):
         print "Creating CD drive..."
@@ -193,6 +193,47 @@ class HardwareManager(object):
         task = vm.ReconfigVM_Task(spec=spec)
         waitForTasks(self.conn, [task])
         print "%sGB disk added to %s\n" % (self.args.hard_disk_size, vm.config.name)
+
+    def changeSizeThinProvisionedDisk(self, vm):
+        print "Adjusting hard disk size..."
+
+        spec = vim.vm.ConfigSpec()
+
+        disk = self.findFreeHardDisk(vm, thinProvisioned=True) # Fetch the required hard disk
+
+        if disk != None:
+            dev_changes = []
+            new_disk_kb = int(self.args.hard_disk_size) * 1024 * 1024
+
+            disk_spec = vim.vm.device.VirtualDeviceSpec()
+            disk_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.edit
+            disk_spec.device = disk
+
+            if int(disk_spec.device.capacityInKB) < new_disk_kb:
+                disk_spec.device.capacityInKB = new_disk_kb
+                dev_changes.append(disk_spec)
+
+                spec.deviceChange = dev_changes
+
+                task = vm.ReconfigVM_Task(spec=spec)
+                waitForTasks(self.conn, [task])
+                print "%sGB disk changed to %s\n" % (self.args.hard_disk_size, vm.config.name)
+            else:
+                print "Unable to make the disk smaller, you can only make it larger"
+        else:
+            print 'No thin provisioned disk found'
+
+    def findFreeHardDisk(self, vm, thinProvisioned=None):
+        for dev in vm.config.hardware.device:
+            if isinstance(dev, vim.vm.device.VirtualDisk):
+                if thinProvisioned == True: # Return is the device is a thin provisioned disk
+                    if dev.backing.thinProvisioned:
+                        return dev
+                elif thinProvisioned == False: # Return is the device is not a thin provisioned disk
+                    if not dev.backing.thinProvisioned:
+                        return dev
+
+        return None
 
     def addNIC(self, vm):        
         print "Creating NIC...."
