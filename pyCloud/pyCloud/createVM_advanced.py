@@ -34,6 +34,9 @@ def main():
     hm.addIDEController(vm)
     hm.addCDDrive(vm)
 
+    ''' Add a USB controller to the VM '''
+    hm.addUSBController(vm)
+
     if args.power_on != None:
         pm.turnOnVM(vm)
 
