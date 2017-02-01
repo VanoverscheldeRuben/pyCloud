@@ -114,6 +114,31 @@ class HardwareManager(object):
         waitForTasks(self.conn, [task])
         print "Created USB controller\n"
 
+    def findUSBController(self, vm):
+        for dev in vm.config.hardware.device:
+            if isinstance(dev, vim.vm.device.VirtualUSBController):
+                return dev
+        return None
+
+    def removeUSBController(self, vm):
+        print "Removing USB Controller..."
+
+        usb = self.findUSBController(vm)
+
+        spec = vim.vm.ConfigSpec()
+        dev_changes = []
+        
+        dev_spec = vim.vm.device.VirtualDeviceSpec()
+        dev_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.remove
+        dev_spec.device = usb
+        
+        dev_changes.append(dev_spec)
+        spec.deviceChange = dev_changes
+        task = vm.ReconfigVM_Task(spec=spec)
+        waitForTasks(self.conn, [task])
+    
+        print "Removed USB Controller\n"
+
     def addCDDrive(self, vm):
         print "Creating CD drive..."
 
@@ -149,6 +174,31 @@ class HardwareManager(object):
             print "Created CD drive\n"
         else:
             print 'Unable to add CD drive, no free IDE controller available'
+
+    def findCDDrive(self, vm):
+        for dev in vm.config.hardware.device:
+            if isinstance(dev, vim.vm.device.VirtualCdrom):
+                return dev
+        return None
+
+    def removeCDDrive(self, vm):
+        print "Removing CD drive..."
+
+        cdDrive = self.findCDDrive(vm)
+
+        spec = vim.vm.ConfigSpec()
+        dev_changes = []
+        
+        dev_spec = vim.vm.device.VirtualDeviceSpec()
+        dev_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.remove
+        dev_spec.device = cdDrive
+        
+        dev_changes.append(dev_spec)
+        spec.deviceChange = dev_changes
+        task = vm.ReconfigVM_Task(spec=spec)
+        waitForTasks(self.conn, [task])
+    
+        print "Removed CD drive\n"
 
     def addHardDisk(self, vm):
         print "Creating hard disk..."
