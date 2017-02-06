@@ -228,8 +228,7 @@ class HardwareManager(object):
         disk_spec.device = vim.vm.device.VirtualDisk()
         disk_spec.device.backing = \
             vim.vm.device.VirtualDisk.FlatVer2BackingInfo()
-        if self.args.hard_disk_type == 'thin':
-            disk_spec.device.backing.thinProvisioned = True
+        disk_spec.device.backing.thinProvisioned = True
         disk_spec.device.backing.diskMode = 'persistent'
         disk_spec.device.unitNumber = unit_number
         disk_spec.device.capacityInKB = new_disk_kb

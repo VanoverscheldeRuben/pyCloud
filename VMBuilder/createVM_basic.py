@@ -10,7 +10,7 @@ def main():
     pm = PowerManager()
     hm = HardwareManager()
 
-    args = arginput.getArgs(['Host', 'Username', 'Password', 'NewName', 'DatastoreName', 'Memory', 'HardDiskSize', 'HardDiskType', 'NetworkName', 'Task', 'PowerOn'])
+    args = arginput.getArgs(['Host', 'Username', 'Password', 'NewName', 'DatastoreName', 'Memory', 'HardDiskSize', 'NetworkName', 'Task', 'PowerOn'])
     arginput.addPassword(args)
 
     cm.setArgs(args)
